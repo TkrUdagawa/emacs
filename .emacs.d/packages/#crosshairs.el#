@@ -1,0 +1,225 @@
+;;; crosshairs.el --- Highlight the current line and column.
+;;
+;; Filename: crosshairs.el
+;; Description: Highlight the current line and column.
+;; Author: Drew Adams
+;; Maintainer: Drew Adams (concat "drew.adams" "@" "oracle" ".com")
+;; Copyright (C) 2006-2018, Drew Adams, all rights reserved.
+;; Created: Fri Sep 08 13:09:19 2006
+;; Version: 0
+;; Package-Requires: ((hl-line+ "0") (col-highlight "0") (vline "0"))
+;; Last-Updated: Mon Jan  1 10:27:45 2018 (-0800)
+;;           By: dradams
+;;     Update #: 516
+;; URL: https://www.emacswiki.org/emacs/download/crosshairs.el
+;; Doc URL: https://www.emacswiki.org/emacs/CrosshairHighlighting
+;; Keywords: faces, frames, emulation, highlight, cursor, accessibility
+;; Compatibility: GNU Emacs: 22.x, 23.x, 24.x, 25.x, 26.x
+;;
+;; Features that might be required by this library:
+;;
+;;   `col-highlight', `hl-line', `hl-line+', `vline'.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;; Commentary:
+;;
+;;  This library highlights the current line and the current column.
+;;  It combines the features of libraries `hl-line.el', `hl-line+.el',
+;;  and `col-highlight.el', which let you highlight the line or column
+;;  individually.  See those libraries for more information, in
+;;  particular for user options that affect the behavior.
+;;
+;;  If you want the horizontal and vertical highlighting to look the
+;;  same, then:
+;;
+;;  1. Set option `col-highlight-vline-face-flag' to non-nil.
+;;  2. Customize faces `col-highlight' and `hl-line' to look the same.
+;;
+;;  Command `crosshairs-mode' toggles this highlighting on and off.
+;;  You can do this twice in succession to flash the crosshairs to
+;;  show you where the cursor is.  An alternative way to
+;;  flash-highlight is to use command `flash-crosshairs' (once).
+;;
+;;  Command `crosshairs-highlight' shows crosshairs highlighting until
+;;  your next action (next command, technically).  Command
+;;  `crosshairs-unhighlight' turns off crosshairs highlighting due to
+;;  `crosshairs-highlight'.
+;;
+;;  With no prefix arg, command `crosshairs' is
+;;  `crosshairs-highlight'.  With a prefix arg, it is
+;;  `crosshairs-mode'.
+;;
+;;  You can also have crosshairs highlighting come on automatically,
+;;  when Emacs is idle.  Command `toggle-crosshairs-when-idle' toggles
+;;  this mode.
+;;
+;;  You can use command `flash-crosshairs' to do what its name says
+;;  when you switch buffers or windows.  Here is how one user did it
+;;  (rejoin the split URL):
+;;  https://unix.stackexchange.com/questions/83167/emacs-finding-the-
+;;  cursor-in-multiple-windows
+;;
+;;
+;;  See also:
+;;
+;;  * Library `hl-line+.el', which highlights the current line.
+;;
+;;  * Library `col-highlight.el', which highlights the current column.
+;;
+;;  * Library `cursor-chg.el' or library `oneonone.el', to change the
+;;    cursor type when Emacs is idle.
+;;
+;;
+;;  User options defined here:
+;;
+;;    `crosshairs-mode'.
+;;
+;;  Commands defined here:
+;;
+;;    `crosshairs', `crosshairs-flash', `crosshairs-highlight',
+;;    `crosshairs-mode', `crosshairs-toggle-when-idle',
+;;    `crosshairs-unhighlight', `flash-crosshairs',
+;;    `toggle-crosshairs-when-idle'.
+;;
+;;  Internal variables defined here:
+;;
+;;    `crosshairs-flash-col-timer', `crosshairs-flash-line-timer',
+;;    `crosshairs-highlight-when-idle-p'.
+;;
+;;  Suggested alternative key bindings:
+;;
+;;      (global-set-key [(control ?+)] 'crosshairs)
+;;   or (global-set-key [(control ?+)] 'crosshairs-mode)
+;;   or (global-set-key [(control ?+)] 'crosshairs-flash)
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;; Change Log:
+;;
+;; 2017/06/26 dadams
+;;     crosshairs-flash:
+;;       Use hl-line-unhighlight-now, not global-hl-line-unhighlight, for
+;;       crosshairs-flash-line-timer.  Thx to Dan Harms.
+;; 2014/11/28 dadams
+;;     crosshairs-mode: Call global-hl-line-unhighlight-all (Emacs 24.4+).
+;;     crosshairs-highlight:
+;;       Push global-hl-line-overlay to global-hl-line-overlays (Emacs 24.4+).
+;;     crosshairs-unhighlight: Call global-hl-line-unhighlight-all (Emacs 24.4+).
+;; 2014/07/22 dadams
+;;     Removed extra, vestigial package-requires.
+;; 2012/12/25 dadams
+;;     Added Package-Requires.
+;; 2012/05/18 dadams
+;;     Removed: crosshairs-overlay-priority.  Instead, use vline-overlay-priority
+;;              and col-highlight-overlay-priority.
+;;     crosshairs-mode, crosshairs-(un)highlight:
+;;       Do not set the overlay priority - done using defadvice in hl-line+.el and
+;;       col-highlight.el.
+;; 2012/05/17 dadams
+;;     crosshairs-mode: Made it respect crosshairs-overlay-priority.
+;;     Removed: crosshairs-vline-same-face-flag.
+;; 2011/01/03 dadams
+;;     Added autoload cookies for defgroup, defcustoms, commands.
+;; 2010/06/29 dadams
+;;     Added: crosshairs-overlay-priority.
+;;     crosshairs-(un)highlight: Set/remove priority if crosshairs-overlay-priority.
+;; 2008/09/03 dadams
+;;     crosshairs-mode: Don't set previous state if explicit ARG.
+;;                      Added message indicating position.
+;;     Added: crosshairs, crosshairs-(un)highlight.
+;; 2008/08/31 dadams
+;;     crosshairs-flash: Cancel timers at the outset.
+;;                       Remove hl-line-unhighlight-now from pre-command-hook.
+;; 2008/08/08 dadams
+;;     Added: crosshairs-flash-col-timer, crosshairs-flash-line-timer.
+;;     crosshairs-flash:
+;;       Call col-highlight-(un)highlight with arg t.
+;;       Save unhighlighting timers in crosshairs-flash-(col|line)-timer.
+;;       First, cancel unhighlighting timers.
+;; 2008/01/21 dadams
+;;     Use vline.el now, instead of column-marker.el.
+;;     Added group crosshairs, option crosshairs-vline-same-face-flag.
+;;     crosshairs-mode, crosshairs-toggle-when-idle:
+;;       If both are already on or off, reflect that as the crosshair state.
+;;     crosshairs-toggle-when-idle:
+;;       crosshairs-highlight-when-idle-p, not col-highlight-when-idle-p.
+;;     crosshairs-flash:
+;;       Save/restore global-hl-line-mode.
+;;       Clear and rehighlight column initially.  Maybe highlight twice (bug).
+;;       Don't use highlight modes to unhighlight - just unhighlight.
+;;       Renamed: line-show-period to hl-line-flash-show-period.
+;;     Removed semi-support for Emacs 20.
+;; 2006/09/08 dadams
+;;     Created.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; This program is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU General Public License as
+;; published by the Free Software Foundation; either version 3, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+;; Floor, Boston, MA 02110-1301, USA.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;; Code:
+
+(require 'hl-line+) ;; Requires `hl-line.el'.
+(require 'col-highlight) ;; Requires `vline.el'.
+
+(defvar global-hl-line-overlays)        ; In `hl-line.el' (Emacs 24.4+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;###autoload
+(defgroup crosshairs nil
+  "Highlight the current line and column."
+  :prefix "crosshairs-"
+  :group 'editing :group 'cursor :group 'hl-line :group 'frames
+  :link `(url-link :tag "Send Bug Report"
+                                      ,(concat "mailto:" "drew.adams" "@" "oracle" ".com?subject=\
+crosshairs.el bug: \
+&body=Describe bug here, starting with `emacs -q'.  \
+Don't forget to mention your Emacs and library versions."))
+  :link '(url-link :tag "Other Libraries by Drew"
+                   "https://www.emacswiki.org/emacs/DrewsElispLibraries")
+  :link '(url-link :tag "Download"
+                   "https://www.emacswiki.org/emacs/download/crosshairs.el"))
+
+(defvar crosshairs-highlight-when-idle-p nil
+    "Non-nil means highlight current line and column when Emacs is idle.
+Do NOT change this yourself; instead, use
+`\\[toggle-crosshairs-when-idle]'.")
+
+(defvar crosshairs-flash-line-timer (timer-create)
+  "Timer used to unhighlight current line for `crosshairs-flash'.")
+
+(defvar crosshairs-flash-col-timer (timer-create)
+  "Timer used to unhighlight current column for `crosshairs-flash'.")
+
+;;;###autoload
+(define-minor-mode crosshairs-mode
+      "Toggle highlighting the current line and column.
+With ARG, turn highlighting on if and only if ARG is positive."
+      :init-value nil :global t :group 'crosshairs
+      :link `(url-link :tag "Send Bug Report"
+                                          ,(concat "mailto:" "drew.adams" "@" "oracle" ".com?subject=\
+crosshairs.el bug: \
+&body=Describe bug here, starting with `emacs -q'.  \
+Don't forget to mention your Emacs and library versions."))
+      :link '(url-link :tag "Other Libraries by Drew"
+                       "https://www.emacswiki.org/emacs/DrewsElispLibraries")
+      :link '(url-link :tag "Download"
+                       "https://www.emacswiki.org/emacs/download/crosshairs.el")
+      :link '(url-link :tag "Description"
+                                 "https://www.emac
