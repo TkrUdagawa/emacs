@@ -16,12 +16,14 @@
 
 ;; 初期化
 (package-initialize)
-(load-theme 'wombat t)
- ;(load-theme 'zenburn t)
+;(load-theme 'wombat t)
+(load-theme 'zenburn t)
 
 (display-time)
 (global-set-key "\C-h" 'delete-backward-char)
-(global-linum-mode t)
+                                        ; (global-linum-mode t)
+(if (version<= "26.0.50" emacs-version)
+      (global-display-line-numbers-mode))
 (show-paren-mode t)
 (column-number-mode t)
 (setq-default tab-width 4 indent-tabs-mode nil)
@@ -34,13 +36,13 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
    (quote
-    (col-highlight crosshairs zenburn-theme irony yaml-mode yasnippet flycheck elpy))))
+    (doom-modeline col-highlight crosshairs zenburn-theme irony yaml-mode yasnippet flycheck elpy))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
+ '(col-highlight ((t (:inherit hl-line)))))
 (require 'yasnippet)
 (setq yas-snippet-dirs
       '("~/.emacs.d/snippets"  ;; 自作スニペット
@@ -68,6 +70,22 @@
 (toggle-highlight-column-when-idle 1)
 (col-highlight-set-interval 0.2)
 ;;; hl-lineと併用すればカーソル位置を十字形にハイライトできる
-(custom-set-faces
- '(col-highlight ((t (:inherit hl-line)))))
 (global-hl-line-mode 1)
+
+
+ ;(require 'doom-modeline)
+;(doom-modeline-mode 1)
+; (use-package doom-themes
+;    :custom
+;    (doom-themes-enable-italic t)
+;    (doom-themes-enable-bold t)
+;    :custom-face
+;    (doom-modeline-bar ((t (:background "#6272a4"))))
+;    :config
+;    (load-theme 'doom-dracula t)
+;    (doom-themes-neotree-config)
+;    (doom-themes-org-config))
+;(use-package doom-modeline
+;      :ensure t
+;      :hook (after-init . doom-modeline-mode))
+;
